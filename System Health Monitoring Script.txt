@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Thresholds (adjust these according to your requirements)
+CPU_THRESHOLD=80     # CPU usage threshold (%)
+MEM_THRESHOLD=80     # Memory usage threshold (%)
+DISK_THRESHOLD=90    # Disk usage threshold (%)
+PROCESS_NAME="nginx" # Example process to monitor
+
+# Function to check CPU usage
+check_cpu_usage() {
+    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+    if (( $(echo "$cpu_usage > $CPU_THRESHOLD" | bc -l) )); then
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): CPU usage is high: $cpu_usage%" | tee -a monitoring.log
+    fi
+}
+
+# Function to check memory usage
+check_memory_usage() {
+    local mem_usage=$(free | awk '/Mem/{printf("%d", $3/$2*100)}')
+    if (( mem_usage > MEM_THRESHOLD )); then
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): Memory usage is high: $mem_usage%" | tee -a monitoring.log
+    fi
+}
+
+# Function to check disk usage
+check_disk_usage() {
+    local disk_usage=$(df -h / | awk '/\// {print $(NF-1)}' | sed 's/%//g')
+    if (( disk_usage > DISK_THRESHOLD )); then
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): Disk usage is high: $disk_usage%" | tee -a monitoring.log
+    fi
+}
+
+# Function to check if a process is running
+check_process() {
+    local process_found=$(pgrep "$PROCESS_NAME")
+    if [ -z "$process_found" ]; then
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): Process $PROCESS_NAME is not running!" | tee -a monitoring.log
+    fi
+}
+
+# Main monitoring loop
+while true; do
+    check_cpu_usage
+    check_memory_usage
+    check_disk_usage
+    check_process
+    sleep 300  # Sleep for 5 minutes before checking again
+done
